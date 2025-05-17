@@ -1,32 +1,81 @@
 "use client"
 
 import { useState } from "react"
-import { FaUser, FaLock, FaUserShield, FaUserTie, FaUsers } from "react-icons/fa"
+import { useNavigate } from "react-router-dom"  // <-- import useNavigate
+import { FaUser, FaLock, FaUserShield, FaUserTie, FaUsers, FaEnvelope } from "react-icons/fa"
 
-const Login = ({ onLogin, onSignup }) => {
+const Login = () => {
+  const navigate = useNavigate() // <-- initialize useNavigate
+
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [email, setEmail] = useState("")
   const [userType, setUserType] = useState("admin")
   const [error, setError] = useState("")
   const [isSignup, setIsSignup] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!username || !password) {
-      setError("Please enter both username and password")
+    setError("")
+
+    if (!username || !password || (isSignup && !email)) {
+      setError("Please enter all required fields")
       return
     }
 
-    if (isSignup) {
-      const success = onSignup(username, password, userType)
-      if (!success) {
-        setError("Username already exists. Try a different one.")
+    setLoading(true)
+
+    const endpoint = isSignup ? "signup" : "login"
+
+    const body = isSignup
+      ? { username, password, role: userType, email }
+      : { username, password, role: userType }
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/auth/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.message || "Something went wrong.")
+        setLoading(false)
+        return
       }
-    } else {
-      const success = onLogin(username, password, userType)
-      if (!success) {
-        setError('Invalid credentials. Try using "password" as the password.')
+
+      alert(isSignup ? "Signup successful! Now login." : "Login successful!")
+
+      // Reset fields only after success
+      setUsername("")
+      setPassword("")
+      setEmail("")
+      setError("")
+
+      // Agar signup hai to login page pe le jao, warna redirect user to dashboard
+      if (!isSignup) {
+        // yahan role ke hisaab se redirect karo
+        if (data.user.role === "admin") {
+          navigate("/admin-dashboard")
+        } else if (data.user.role === "clubhead") {
+          navigate("/clubhead-dashboard")
+        } else if (data.user.role === "participant") {
+          navigate("/participant-dashboard")
+        } else {
+          navigate("/")  // fallback redirect
+        }
+      } else {
+        // Signup ke baad login karne ko bolte hain
+        setIsSignup(false)
       }
+    } catch (err) {
+      console.error("Fetch error:", err)
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -38,7 +87,11 @@ const Login = ({ onLogin, onSignup }) => {
           <p className="text-gray-600 mt-2">{isSignup ? "Create an account" : "Sign in to access your dashboard"}</p>
         </div>
 
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* User Type */}
@@ -48,7 +101,7 @@ const Login = ({ onLogin, onSignup }) => {
               {[
                 { type: "admin", icon: <FaUserShield />, label: "Admin" },
                 { type: "clubhead", icon: <FaUserTie />, label: "Club Head" },
-                { type: "participant", icon: <FaUsers />, label: "Participant" }
+                { type: "participant", icon: <FaUsers />, label: "Participant" },
               ].map(({ type, icon, label }) => (
                 <button
                   type="button"
@@ -83,9 +136,33 @@ const Login = ({ onLogin, onSignup }) => {
                 onChange={(e) => setUsername(e.target.value)}
                 className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Enter your username"
+                disabled={loading}
               />
             </div>
           </div>
+
+          {/* Email (only for signup) */}
+          {isSignup && (
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
+                Email
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaEnvelope className="text-gray-400" />
+                </div>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Enter your email"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Password */}
           <div>
@@ -103,6 +180,7 @@ const Login = ({ onLogin, onSignup }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Enter your password"
+                disabled={loading}
               />
             </div>
             {!isSignup && <p className="text-xs text-gray-500 mt-1">Hint: Use "password" for demo</p>}
@@ -111,9 +189,12 @@ const Login = ({ onLogin, onSignup }) => {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200"
+            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 ${
+              loading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            disabled={loading}
           >
-            {isSignup ? "Create Account" : "Sign In"}
+            {isSignup ? (loading ? "Creating Account..." : "Create Account") : (loading ? "Signing In..." : "Sign In")}
           </button>
         </form>
 
@@ -124,8 +205,10 @@ const Login = ({ onLogin, onSignup }) => {
             onClick={() => {
               setIsSignup(!isSignup)
               setError("")
+              setEmail("")
             }}
             className="text-purple-600 hover:underline font-medium"
+            disabled={loading}
           >
             {isSignup ? "Sign In" : "Create one"}
           </button>

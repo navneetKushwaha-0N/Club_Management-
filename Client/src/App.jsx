@@ -1,12 +1,9 @@
-"use client"
-
-import { useState } from "react"
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import Login from "./components/Login"
 import AdminDashboard from "./components/dashboards/AdminDashboard"
 import ClubHeadDashboard from "./components/dashboards/ClubHeadDashboard"
 import ParticipantDashboard from "./components/dashboards/ParticipantDashboard"
-import "./App.css"
+import { useState } from "react"
 
 function App() {
   const [user, setUser] = useState({
@@ -16,8 +13,6 @@ function App() {
   })
 
   const handleLogin = (username, password, userType) => {
-    // In a real app, you would validate credentials against a backend
-    // This is just a simple demo
     if (password === "password") {
       setUser({
         isAuthenticated: true,
@@ -44,7 +39,7 @@ function App() {
           path="/"
           element={
             user.isAuthenticated ? (
-              <Navigate to={`/dashboard/${user.userType?.toLowerCase()}`} />
+              <Navigate to={`/dashboard/${user.userType.toLowerCase()}`} />
             ) : (
               <Login onLogin={handleLogin} />
             )
